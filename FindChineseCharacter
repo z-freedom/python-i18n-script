@@ -1,0 +1,301 @@
+from idlelib.iomenu import encoding
+import re
+import os
+from builtins import UnicodeDecodeError
+#迭代输入文件路径,返回其中所有文件绝对路径列表
+commonencoding="UTF-8"
+#匹配中文
+chanieseRegPatten=u"[\u4e00-\u9fa5]+"
+
+#rootDir 根目录
+#return 根目录下所有的文件路径列表
+def findByDir(rootDir):
+    listfilespath=[]
+    for lists in os.listdir(rootDir):
+        path = os.path.join(rootDir, lists)
+        if os.path.isdir(path):
+            findByDir(path)
+        else :
+            listfilespath.append(path)
+    return listfilespath
+#查找文件中的中文
+#filepath 文件绝对路径
+#def findByFileName(filepath):
+#    pattern =re.compile(chanieseRegPatten)
+#    file = open(filepath,encoding=commonencoding)
+#    try:
+#       for line in file:
+#           gr=re.findall(pattern, line)
+#           if len(gr) != 0:
+                #print(line)
+#                print(gr)
+#    finally:
+#        file.close()
+
+#返回从txt文档中读取到的文件路径列表
+#txt文档要求一个路径一行，中间末尾没有空格
+def getAllPathFromOneFile(filePath):
+    fileList = []
+    try:
+        file=open(filePath,encoding=commonencoding)
+        pattern=re.compile("\s+")
+        for line in file:
+            if pattern.fullmatch(line)==None:
+                fileList.append(line)
+                print("从文件中获取文件路径：",line)
+        file.close()
+    except BaseException:
+        print("发生错误！")
+        exit("发生错误")
+    finally:
+        file.close()
+        return  fileList
+
+
+#查找Java文件中的中文，忽略注释
+#path 文件绝对路径
+#返回中文列表
+def findCnFromJavaFileIgnoreComment(path)  :
+    #匹配中文
+    pattern = re.compile(chanieseRegPatten)
+    #存放返回结果
+    result=[]
+    #匹配文件中的注释包括单行注释和块注释
+    ignorePatten=re.compile("/\*{1,2}[\s\S]*?\*/|//[\s\S]*?\n")
+    file = open(path, encoding=commonencoding)
+    strfile=file.read()
+    #删除Java代码里面的注释
+    strfile=re.sub(ignorePatten,"",strfile)
+    #查找中文
+    result = pattern.findall(strfile)
+    file.close()
+    return  result
+
+
+#获取普通文件中所有的中文
+#返回中文列表
+def findCnFromFile(path)  :
+    #仅用于判断一行是否有中文
+    pattern = re.compile(chanieseRegPatten)
+    result=[]
+    file = open(path, encoding=commonencoding)
+    strfile=file.read()
+    #查找中文
+    result = pattern.findall(strfile)
+    file.close()
+    return  result
+
+#查找和替换普通文件中的中文
+#path 文件绝对路径
+#dic  字典 key-value的数据结构，key为中文，value为中文对应的英文
+def findAndReplacesCnWithEn(path,dic:dict)  :
+    #匹配中文
+    pattern = re.compile(chanieseRegPatten)
+    file = open(path, encoding=commonencoding,mode="r+")
+    strfile = file.read()
+    # 查找文件所有中文
+    CNList = pattern.findall(strfile)
+
+    for chinese in CNList:
+        if chinese in dic.keys():
+            replpatten = "(?<=[^\u4e00-\u9fa5])" + chinese + "(?=[^\u4e00-\u9fa5])"
+            result = re.sub(replpatten,dic.get(chinese), strfile)
+    file.close()
+    return result
+
+#查找和替换Java中文，忽略注释
+def findAndReplacesReplacesCnWithEnOfJava(path,dic:dict)  :
+    #匹配中文
+    pattern = re.compile(chanieseRegPatten)
+    #匹配注释
+    ignorePatten=re.compile("/\*{1,2}[\s\S]*?\*/|//[\s\S]*?\n")
+    file = open(path, encoding=commonencoding, mode="r+")
+    strfile=file.read()
+    #先保存注释到列表中
+    comments=ignorePatten.findall(strfile)
+    #然后把注释特殊处理，用文件中不存在的字符串代替，方便一会儿替换回来
+    result=re.sub(ignorePatten,"#############",strfile)
+    #找到所有中文，此时以及忽略注释
+    toBeReplaceList=pattern.findall(result)
+    #替换
+    for word in toBeReplaceList:
+        if word in dic.keys():
+            result=result.replace(word,dic.get(word))
+    #print(result)
+    #把注释在替换回来
+    for comment in comments:
+        result=result.replace("#############",comment,1)
+    print(result)
+    file.write(result)
+    return
+
+
+#查找和替换JSP中文，忽略注释
+#字典Key为配置参数名称，value为英文翻译
+def findAndReplacesCnWithEnOfJSP(path,dic:dict)  :
+    #中文正则表达式
+    pattern = re.compile(chanieseRegPatten)
+    #匹配注释
+    ignorePatten=re.compile("<!--(\s|.)*?-->|\/\*(\s|.)*?\*\/|<%--(\s|.)*?--%>")
+    file = open(path, encoding=commonencoding, mode="r+")
+    str1='<%=new String(bundle.getString("'
+    str2='").getBytes("ISO-8859-1"), "UTF8")%>'
+    print(os.path.splitext(path)[1])
+    if os.path.splitext(path)[1]==".jsp":
+        strfile=file.read()
+        #先保存注释<!-- 注释内容> -->或/* 注释内容  */ 或<%--  注释内容 --%>到列表
+        comments=ignorePatten.findall(strfile)
+        #然后把注释特殊处理，用文件中不存在的字符串代替，方便一会儿替换回来
+        result=re.sub(ignorePatten,"#@############",strfile)
+        #找到所有中文，此时已经忽略注释
+        toBeReplaceList=pattern.findall(result)
+        #替换
+        for chinese in toBeReplaceList:
+            if chinese in dic.values():
+                paramname=list(dic.keys())[list(dic.values()).index(chinese)]
+                replpatten="(?<=[^\u4e00-\u9fa5])"+chinese+"(?=[^\u4e00-\u9fa5])"
+                result=re.sub(replpatten,str1+paramname+str2,result)
+        #print(result)
+        #把注释在替换回来
+        for comment in comments:
+            result,count=re.subn("#@############",comment,result)
+            if count !=1:
+                print("提示！替换注释发生错误")
+        print(result)
+    else:
+        print("警告！该文件不是JSP文件，程序将跳过此文件")
+    file.seek(0)
+    file.truncate()
+    file.write(result)
+    return
+
+#读取JSP文件中的中文，忽略注释
+def findChineseCharacterFromJspFileIgnoreComment(path)  :
+    #匹配中文
+    pattern = re.compile(chanieseRegPatten)
+    #返回结果
+    result=[]
+    #匹配文件中的注释包括单行注释和块注释
+    ignorePatten=re.compile("<!--(\s|.)*?-->|\/\*(\s|.)*?\*\/|<%--(\s|.)*?--%>")
+    file = open(path, encoding=commonencoding)
+    strfile=file.read()
+    #删除代码里面的注释
+    rel=re.sub(ignorePatten,"",strfile)
+    #遍历字符串，一次处理一行
+    #for line in rel.splitlines():
+     #   rel111 = pattern.findall(line)
+     #   if len(rel111) != 0:
+     #       print(rel111)
+
+    result=pattern.findall(rel)
+    file.close()
+    return  result
+
+#读取中英文标准翻译
+#返回字典 key为中文，value为英文
+#参数 字典txt文件路径和中英文分隔符
+def getDic(dicPath=r"E:\MyFiles\dic.txt",spil="##") ->dict:
+    dicfile=open(dicPath,encoding=commonencoding)
+    dic={}
+    for line in dicfile:
+        rel=line.split(spil)
+        rel[1]=rel[1].strip()
+        dic[rel[0]]=rel[1]
+    return  dic
+
+#生成配置参数
+#JSPPath JSP文件路径，JSPPref参数公共前缀,lang中文请输入CN，英文请输入EN
+def propertiesFile(JSPPath,JSPPref,lang) ->dict:
+    list = findChineseCharacterFromJspFileIgnoreComment(JSPPath)
+    dic = getDic()
+    reldic={}
+    #ZN_file = open("""E:\MyFiles\CN.txt""", encoding="utf-8", mode="r+")
+    #EN_file = open("""E:\MyFiles\EN.txt""", encoding="utf-8", mode="r+")
+    if lang=="CN":
+        for item in list:
+            if item in dic.keys():
+                key=JSPPref + "." + dic.get(item).replace(" ", "")
+                if key not in reldic.keys():
+                    print(key, "=", item)
+                    reldic[key]=item
+                else:
+                    #print("重复的key:",key, "=", item)
+                    pass
+                #oneparam=pref + "." + dic.get(item).replace(" ", "")+ "="+item+"\n"
+                #ZN_file.writelines(oneparam)
+
+    #print("---------------------------")
+    if lang=="EN":
+        for item in list:
+            if item in dic.keys():
+                key=JSPPref + "." + dic.get(item).replace(" ", "")
+                if key not in reldic.keys():
+                    print(JSPPref + "." + dic.get(item).replace(" ", ""), "=", dic.get(item))
+                    reldic[key]=item
+                else:
+                    #print("重复的key:",key, "=", item)
+                    pass
+                #
+                #oneparam = pref + "." + dic.get(item).replace(" ", "") + "=" + item+"\n"
+                #EN_file.writelines(oneparam)
+    #ZN_file.close()
+    #EN_file.close()
+    return reldic
+#获取所有需要修改JSP文件路径以及参数公共后缀
+def getPrefAndJSPPathFromFile() ->dict:
+    file=open(r"E:\MyFiles\inf.txt",encoding="UTF-8")
+    dic={}
+    for line in file:
+        list=line.split("##")
+        if len(list) !=2:
+            print("---------------------请检查文件内容是否符合规范-------------------")
+            exit("请检查文件内容是否符合规范")
+        else:
+            dic[list[0]]=list[1].replace("\n","")
+    return  dic
+
+
+
+
+#path=r"E:\MyFiles\test.jsp"
+#pref="Parameterview.CoreBusiness.Commonparameter.Institutionalinformation"
+#propertiesFile(path,pref)
+def addi18n(path):
+    pat1=re.compile("""(<%@ include file="/form.jsp"%>)""")
+    str=""""<%@ include file="/i18n.jsp" %>"""
+    pat2 = re.compile(str)
+    jspfile=open(path,mode="r+",encoding="utf-8")
+    strfile=jspfile.read()
+    if len(pat2.findall(strfile))!=0:
+        print(path)
+        print("该文件已经包含",str)
+        print(path)
+    else:
+        strfile,n=pat1.subn('<%@ include file="/form.jsp"%>\n<%@ include file="/i18n.jsp" %>',strfile)
+        print("替换次数为：",n)
+        jspfile.seek(0)
+        jspfile.truncate()
+        jspfile.write(strfile)
+    rel=pat1.findall(strfile)
+    jspfile.close()
+    print(rel)
+
+def main():
+    #从E:\MyFiles\inf.txt中获取所有需要修改JSP文件路径以及参数公共后缀
+    listFilePathAndPref=getPrefAndJSPPathFromFile()
+    #print(listFilePathAndPref)
+
+    for p in listFilePathAndPref:
+        #print(p,listFilePathAndPref.get(p))
+        #propertiesFile(listFilePathAndPref.get(p),p)
+        findAndReplacesCnWithEnOfJSP()
+
+
+listfileandpref=getPrefAndJSPPathFromFile()
+for p in listfileandpref:
+    #获取路径
+    path=listfileandpref.get(p)
+    # 获取改文件配置参数
+    propertiesdic=propertiesFile(path,p)
+    findAndReplacesCnWithEnOfJSP(path,propertiesdic)
+    addi18n(path)
