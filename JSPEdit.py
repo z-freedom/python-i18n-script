@@ -22,7 +22,7 @@ class Conf(object):
     jspPathAndPrefSaveFilePath=".\\file\\jspPathAndPref.cfg"
     specStr=r"¥#####$###@"
     #项目所在的根目录
-    rootDir=r"E:\git\OM\SmartEnsembleOM-foreign"
+    rootDir=r"your dir"
     #debug输出所有处理结果，输出提示信息
     loglevel="dubug"
     def __init__(self):
