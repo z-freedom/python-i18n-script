@@ -4,7 +4,7 @@ import os
 
 print("#################################################################################")
 
-#filepath="E:\\git\\SmartThemis\\SmartThemis_src\\webapp\\WEB-INF\\views\\vise\\freport\\webdesign\\Copy (2) of reportDesign.jsp"
+#filepath="your jsp file path"
 listfile="E:\\new.txt"
 print(listfile)
 
